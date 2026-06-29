@@ -91,7 +91,10 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
   });
 
   const handleFileChange = (event: any) => {
-    const file = event.target.files[0];
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
     // Max 10 MiB size
     if (file.size > 10 * 1024 * 1024) {
       alert('File size must be less than 10 MiB');
@@ -114,27 +117,41 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
         if (event.target && event.target.result) {
           const result = event.target.result;
           if (result instanceof ArrayBuffer) {
-            const nonce = crypto.getRandomValues(new Uint8Array(5));
-            const policyObjectBytes = fromHex(policyObject);
-            const id = toHex(new Uint8Array([...policyObjectBytes, ...nonce]));
-            const { encryptedObject: encryptedBytes } = await client.encrypt({
-              threshold: 2,
-              packageId,
-              id,
-              data: new Uint8Array(result),
-            });
-            const storageInfo = await storeBlob(encryptedBytes);
-            displayUpload(storageInfo.info, file.type);
-            setIsUploading(false);
+            try {
+              const nonce = crypto.getRandomValues(new Uint8Array(5));
+              const policyObjectBytes = fromHex(policyObject);
+              const id = toHex(new Uint8Array([...policyObjectBytes, ...nonce]));
+              const { encryptedObject: encryptedBytes } = await client.encrypt({
+                threshold: 2,
+                packageId,
+                id,
+                data: new Uint8Array(result),
+              });
+              const storageInfo = await storeBlob(encryptedBytes);
+              displayUpload(storageInfo.info, file.type);
+            } catch (err) {
+              console.error('Encryption or upload failed:', err);
+              alert(
+                'Failed to encrypt or upload the file. Please try again.',
+              );
+            } finally {
+              setIsUploading(false);
+            }
           } else {
             console.error('Unexpected result type:', typeof result);
             setIsUploading(false);
           }
         }
       };
+      reader.onerror = () => {
+        console.error('Failed to read file');
+        alert('Failed to read file. Please try again.');
+        setIsUploading(false);
+      };
       reader.readAsArrayBuffer(file);
     } else {
       console.error('No file selected');
+      setIsUploading(false);
     }
   };
 
@@ -203,6 +220,10 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
         onSuccess: async (result) => {
           console.log('res', result);
           alert('Blob attached successfully, now share the link or upload more.');
+        },
+        onError: (error) => {
+          console.error('Failed to publish blob:', error);
+          alert('Failed to associate file with Sui object. Please try again.');
         },
       },
     );

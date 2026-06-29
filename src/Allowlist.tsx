@@ -31,44 +31,48 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
 
   useEffect(() => {
     async function getAllowlist() {
-      // load all caps
-      const res = await suiClient.getOwnedObjects({
-        owner: currentAccount?.address!,
-        options: {
-          showContent: true,
-          showType: true,
-        },
-        filter: {
-          StructType: `${packageId}::allowlist::Cap`,
-        },
-      });
+      try {
+        // load all caps
+        const res = await suiClient.getOwnedObjects({
+          owner: currentAccount?.address!,
+          options: {
+            showContent: true,
+            showType: true,
+          },
+          filter: {
+            StructType: `${packageId}::allowlist::Cap`,
+          },
+        });
 
-      // find the cap for the given allowlist id
-      const capId = res.data
-        .map((obj) => {
-          const fields = (obj!.data!.content as { fields: any }).fields;
-          return {
-            id: fields?.id.id,
-            allowlist_id: fields?.allowlist_id,
-          };
-        })
-        .filter((item) => item.allowlist_id === id)
-        .map((item) => item.id) as string[];
-      setCapId(capId[0]);
-      setInnerCapId(capId[0]);
+        // find the cap for the given allowlist id
+        const capId = res.data
+          .map((obj) => {
+            const fields = (obj!.data!.content as { fields: any }).fields;
+            return {
+              id: fields?.id.id,
+              allowlist_id: fields?.allowlist_id,
+            };
+          })
+          .filter((item) => item.allowlist_id === id)
+          .map((item) => item.id) as string[];
+        setCapId(capId[0]);
+        setInnerCapId(capId[0]);
 
-      // load the allowlist for the given id
-      const allowlist = await suiClient.getObject({
-        id: id!,
-        options: { showContent: true },
-      });
-      const fields = (allowlist.data?.content as { fields: any })?.fields || {};
-      setAllowlist({
-        id: id!,
-        name: fields.name,
-        list: fields.list,
-      });
-      setRecipientAllowlist(id!);
+        // load the allowlist for the given id
+        const allowlist = await suiClient.getObject({
+          id: id!,
+          options: { showContent: true },
+        });
+        const fields = (allowlist.data?.content as { fields: any })?.fields || {};
+        setAllowlist({
+          id: id!,
+          name: fields.name,
+          list: fields.list,
+        });
+        setRecipientAllowlist(id!);
+      } catch (err) {
+        console.error('Failed to load allowlist:', err);
+      }
     }
 
     // Call getAllowlist immediately
@@ -116,6 +120,10 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
           onSuccess: async (result) => {
             console.log('res', result);
           },
+          onError: (error) => {
+            console.error('Failed to add address to allowlist:', error);
+            alert('Failed to add address to allowlist. Please try again.');
+          },
         },
       );
     }
@@ -137,6 +145,10 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
         {
           onSuccess: async (result) => {
             console.log('res', result);
+          },
+          onError: (error) => {
+            console.error('Failed to remove address from allowlist:', error);
+            alert('Failed to remove address from allowlist. Please try again.');
           },
         },
       );

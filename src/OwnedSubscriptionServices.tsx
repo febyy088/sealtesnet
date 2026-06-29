@@ -29,45 +29,49 @@ export function AllServices() {
 
   useEffect(() => {
     async function getCapObj() {
-      // get all owned cap objects
-      const res = await suiClient.getOwnedObjects({
-        owner: currentAccount?.address!,
-        options: {
-          showContent: true,
-          showType: true,
-        },
-        filter: {
-          StructType: `${packageId}::subscription::Cap`,
-        },
-      });
-      const caps = res.data
-        .map((obj) => {
-          const fields = (obj!.data!.content as { fields: any }).fields;
-          return {
-            id: fields?.id.id,
-            service_id: fields?.service_id,
-          };
-        })
-        .filter((item) => item !== null) as Cap[];
+      try {
+        // get all owned cap objects
+        const res = await suiClient.getOwnedObjects({
+          owner: currentAccount?.address!,
+          options: {
+            showContent: true,
+            showType: true,
+          },
+          filter: {
+            StructType: `${packageId}::subscription::Cap`,
+          },
+        });
+        const caps = res.data
+          .map((obj) => {
+            const fields = (obj!.data!.content as { fields: any }).fields;
+            return {
+              id: fields?.id.id,
+              service_id: fields?.service_id,
+            };
+          })
+          .filter((item) => item !== null) as Cap[];
 
-      // get all services of all the owned cap objects
-      const cardItems: CardItem[] = await Promise.all(
-        caps.map(async (cap) => {
-          const service = await suiClient.getObject({
-            id: cap.service_id,
-            options: { showContent: true },
-          });
-          const fields = (service.data?.content as { fields: any })?.fields || {};
-          return {
-            id: cap.service_id,
-            fee: fields.fee,
-            ttl: fields.ttl,
-            owner: fields.owner,
-            name: fields.name,
-          };
-        }),
-      );
-      setCardItems(cardItems);
+        // get all services of all the owned cap objects
+        const cardItems: CardItem[] = await Promise.all(
+          caps.map(async (cap) => {
+            const service = await suiClient.getObject({
+              id: cap.service_id,
+              options: { showContent: true },
+            });
+            const fields = (service.data?.content as { fields: any })?.fields || {};
+            return {
+              id: cap.service_id,
+              fee: fields.fee,
+              ttl: fields.ttl,
+              owner: fields.owner,
+              name: fields.name,
+            };
+          }),
+        );
+        setCardItems(cardItems);
+      } catch (err) {
+        console.error('Failed to load subscription services:', err);
+      }
     }
 
     // Call getCapObj immediately

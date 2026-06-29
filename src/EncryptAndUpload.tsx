@@ -131,9 +131,9 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
               displayUpload(storageInfo.info, file.type);
             } catch (err) {
               console.error('Encryption or upload failed:', err);
-              alert(
-                'Failed to encrypt or upload the file. Please try again.',
-              );
+              const message =
+                err instanceof Error ? err.message : 'Failed to encrypt or upload the file.';
+              alert(message);
             } finally {
               setIsUploading(false);
             }
@@ -197,9 +197,9 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
           return { info };
         });
       } else {
-        alert('Error publishing the blob on Walrus, please select a different Walrus service.');
-        setIsUploading(false);
-        throw new Error('Something went wrong when storing the blob!');
+        throw new Error(
+          'Error publishing the blob on Walrus, please select a different Walrus service.',
+        );
       }
     });
   };

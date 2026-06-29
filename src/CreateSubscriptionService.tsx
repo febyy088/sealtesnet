@@ -3,29 +3,19 @@
 
 import { Transaction } from '@mysten/sui/transactions';
 import { Button, Card, Flex } from '@radix-ui/themes';
-import { useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { useState } from 'react';
 import { useNetworkVariable } from './networkConfig';
 import { useNavigate } from 'react-router-dom';
+import { useExecuteTransaction } from './hooks';
+import { GAS_BUDGET } from './constants';
 
 export function CreateService() {
   const [price, setPrice] = useState('');
   const [ttl, setTtl] = useState('');
   const [name, setName] = useState('');
   const packageId = useNetworkVariable('packageId');
-  const suiClient = useSuiClient();
   const navigate = useNavigate();
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) =>
-      await suiClient.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
-        options: {
-          showRawEffects: true,
-          showEffects: true,
-        },
-      }),
-  });
+  const { mutate: signAndExecute } = useExecuteTransaction();
 
   function createService(price: number, ttl: number, name: string) {
     if (price === 0 || ttl === 0 || name === '') {
@@ -38,7 +28,7 @@ export function CreateService() {
       target: `${packageId}::subscription::create_service_entry`,
       arguments: [tx.pure.u64(price), tx.pure.u64(ttlMs), tx.pure.string(name)],
     });
-    tx.setGasBudget(10000000);
+    tx.setGasBudget(GAS_BUDGET);
     signAndExecute(
       {
         transaction: tx,

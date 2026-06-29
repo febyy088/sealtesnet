@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
 import { Card, Flex } from '@radix-ui/themes';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useNetworkVariable } from './networkConfig';
-import { getObjectExplorerLink } from './utils';
+import { getObjectExplorerLink, getObjectFields } from './utils';
+import { usePolling } from './hooks';
 
 export interface Service {
   id: string;
@@ -27,24 +28,22 @@ export function Service({ setRecipientAllowlist, setCapId }: AllowlistProps) {
   const [service, setService] = useState<Service>();
   const { id } = useParams();
 
-  useEffect(() => {
-    async function getService() {
-      // load the service for the given id
-      const service = await suiClient.getObject({
+  usePolling(
+    async () => {
+      const serviceObj = await suiClient.getObject({
         id: id!,
         options: { showContent: true },
       });
-      const fields = (service.data?.content as { fields: any })?.fields || {};
+      const serviceFields = getObjectFields(serviceObj);
       setService({
         id: id!,
-        fee: fields.fee,
-        ttl: fields.ttl,
-        owner: fields.owner,
-        name: fields.name,
+        fee: serviceFields.fee,
+        ttl: serviceFields.ttl,
+        owner: serviceFields.owner,
+        name: serviceFields.name,
       });
       setRecipientAllowlist(id!);
 
-      // load all caps
       const res = await suiClient.getOwnedObjects({
         owner: currentAccount?.address!,
         options: {
@@ -56,10 +55,9 @@ export function Service({ setRecipientAllowlist, setCapId }: AllowlistProps) {
         },
       });
 
-      // find the cap for the given service id
-      const capId = res.data
+      const capIds = res.data
         .map((obj) => {
-          const fields = (obj!.data!.content as { fields: any }).fields;
+          const fields = getObjectFields(obj);
           return {
             id: fields?.id.id,
             service_id: fields?.service_id,
@@ -67,20 +65,10 @@ export function Service({ setRecipientAllowlist, setCapId }: AllowlistProps) {
         })
         .filter((item) => item.service_id === id)
         .map((item) => item.id) as string[];
-      setCapId(capId[0]);
-    }
-
-    // Call getService immediately
-    getService();
-
-    // Set up interval to call getService every 3 seconds
-    const intervalId = setInterval(() => {
-      getService();
-    }, 3000);
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(intervalId);
-  }, [id]); // Only depend on id since it's needed for the API calls
+      setCapId(capIds[0]);
+    },
+    [id],
+  );
 
   return (
     <Flex direction="column" gap="2" justify="start">

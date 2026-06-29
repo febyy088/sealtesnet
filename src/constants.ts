@@ -5,3 +5,7 @@ export const DEVNET_PACKAGE_ID = '0xTODO';
 export const TESTNET_PACKAGE_ID =
   '0x4cb081457b1e098d566a277f605ba48410e26e66eaab5b3be4f6c560e9501800';
 export const MAINNET_PACKAGE_ID = '0xTODO';
+
+export const TTL_MIN = 10;
+export const GAS_BUDGET = 10_000_000;
+export const POLLING_INTERVAL_MS = 3000;

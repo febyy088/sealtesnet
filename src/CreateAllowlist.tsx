@@ -3,27 +3,17 @@
 
 import { Transaction } from '@mysten/sui/transactions';
 import { Button, Card, Flex } from '@radix-ui/themes';
-import { useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { useState } from 'react';
 import { useNetworkVariable } from './networkConfig';
 import { useNavigate } from 'react-router-dom';
+import { useExecuteTransaction } from './hooks';
+import { GAS_BUDGET } from './constants';
 
 export function CreateAllowlist() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const packageId = useNetworkVariable('packageId');
-  const suiClient = useSuiClient();
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) =>
-      await suiClient.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
-        options: {
-          showRawEffects: true,
-          showEffects: true,
-        },
-      }),
-  });
+  const { mutate: signAndExecute } = useExecuteTransaction();
 
   function createAllowlist(name: string) {
     if (name === '') {
@@ -35,7 +25,7 @@ export function CreateAllowlist() {
       target: `${packageId}::allowlist::create_allowlist_entry`,
       arguments: [tx.pure.string(name)],
     });
-    tx.setGasBudget(10000000);
+    tx.setGasBudget(GAS_BUDGET);
     signAndExecute(
       {
         transaction: tx,
@@ -43,7 +33,6 @@ export function CreateAllowlist() {
       {
         onSuccess: async (result) => {
           console.log('res', result);
-          // Extract the created allowlist object ID from the transaction result
           const allowlistObject = result.effects?.created?.find(
             (item) => item.owner && typeof item.owner === 'object' && 'Shared' in item.owner,
           );

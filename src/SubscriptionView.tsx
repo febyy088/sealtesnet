@@ -1,21 +1,23 @@
 // Copyright (c), Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   useCurrentAccount,
-  useSignAndExecuteTransaction,
   useSignPersonalMessage,
   useSuiClient,
 } from '@mysten/dapp-kit';
 import { useNetworkVariable } from './networkConfig';
-import { AlertDialog, Button, Card, Dialog, Flex } from '@radix-ui/themes';
+import { Button, Card, Flex } from '@radix-ui/themes';
 import { coinWithBalance, Transaction } from '@mysten/sui/transactions';
 import { fromHex, SUI_CLOCK_OBJECT_ID } from '@mysten/sui/utils';
-import { SealClient, SessionKey, getAllowlistedKeyServers } from '@mysten/seal';
+import { SessionKey } from '@mysten/seal';
 import { useParams } from 'react-router-dom';
-import { downloadAndDecrypt, getObjectExplorerLink, MoveCallConstructor } from './utils';
+import { downloadAndDecrypt, getObjectExplorerLink, getObjectFields, MoveCallConstructor } from './utils';
+import { useExecuteTransaction, usePolling, useSealClient } from './hooks';
+import { GAS_BUDGET, TTL_MIN } from './constants';
+import { DecryptedFilesDialog } from './DecryptedFilesDialog';
+import { ErrorAlertDialog } from './ErrorAlertDialog';
 
-const TTL_MIN = 10;
 export interface FeedData {
   id: string;
   fee: string;
@@ -30,11 +32,7 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
   const suiClient = useSuiClient();
   const { id } = useParams();
 
-  const client = new SealClient({
-    suiClient,
-    serverObjectIds: getAllowlistedKeyServers('testnet'),
-    verifyKeyServers: false,
-  });
+  const client = useSealClient();
   const [feed, setFeed] = useState<FeedData>();
   const [decryptedFileUrls, setDecryptedFileUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -46,90 +44,65 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
 
   const { mutate: signPersonalMessage } = useSignPersonalMessage();
 
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) =>
-      await suiClient.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
+  const { mutate: signAndExecute } = useExecuteTransaction();
+
+  usePolling(
+    async () => {
+      const encryptedObjects = await suiClient
+        .getDynamicFields({
+          parentId: id!,
+        })
+        .then((res) => res.data.map((obj) => obj.name.value as string));
+
+      const service = await suiClient.getObject({
+        id: id!,
+        options: { showContent: true },
+      });
+      const service_fields = getObjectFields(service);
+
+      const res = await suiClient.getOwnedObjects({
+        owner: suiAddress,
         options: {
-          showRawEffects: true,
-          showEffects: true,
+          showContent: true,
+          showType: true,
         },
-      }),
-  });
-
-  useEffect(() => {
-    // Call getFeed immediately
-    getFeed();
-
-    // Set up interval to call getFeed every 3 seconds
-    const intervalId = setInterval(() => {
-      getFeed();
-    }, 3000);
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(intervalId);
-  }, [id, suiAddress, packageId, suiClient]);
-
-  async function getFeed() {
-    // get all encrypted objects for the given service id
-    const encryptedObjects = await suiClient
-      .getDynamicFields({
-        parentId: id!,
-      })
-      .then((res) => res.data.map((obj) => obj.name.value as string));
-
-    // get the current service object
-    const service = await suiClient.getObject({
-      id: id!,
-      options: { showContent: true },
-    });
-    const service_fields = (service.data?.content as { fields: any })?.fields || {};
-
-    // get all subscriptions for the given sui address
-    const res = await suiClient.getOwnedObjects({
-      owner: suiAddress,
-      options: {
-        showContent: true,
-        showType: true,
-      },
-      filter: {
-        StructType: `${packageId}::subscription::Subscription`,
-      },
-    });
-
-    // get the current timestamp
-    const clock = await suiClient.getObject({
-      id: '0x6',
-      options: { showContent: true },
-    });
-    const fields = (clock.data?.content as { fields: any })?.fields || {};
-    const current_ms = fields.timestamp_ms;
-
-    // find an expired subscription for the given service if exists.
-    const valid_subscription = res.data
-      .map((obj) => {
-        const fields = (obj!.data!.content as { fields: any }).fields;
-        const x = {
-          id: fields?.id.id,
-          created_at: parseInt(fields?.created_at),
-          service_id: fields?.service_id,
-        };
-        return x;
-      })
-      .filter((item) => item.service_id === service_fields.id.id)
-      .find((item) => {
-        return item.created_at + parseInt(service_fields.ttl) > current_ms;
+        filter: {
+          StructType: `${packageId}::subscription::Subscription`,
+        },
       });
 
-    const feed = {
-      ...service_fields,
-      id: service_fields.id.id,
-      blobIds: encryptedObjects,
-      subscriptionId: valid_subscription?.id,
-    } as FeedData;
-    setFeed(feed);
-  }
+      const clock = await suiClient.getObject({
+        id: '0x6',
+        options: { showContent: true },
+      });
+      const clockFields = getObjectFields(clock);
+      const current_ms = clockFields.timestamp_ms;
+
+      const valid_subscription = res.data
+        .map((obj) => {
+          const fields = getObjectFields(obj);
+          const x = {
+            id: fields?.id.id,
+            created_at: parseInt(fields?.created_at),
+            service_id: fields?.service_id,
+          };
+          return x;
+        })
+        .filter((item) => item.service_id === service_fields.id.id)
+        .find((item) => {
+          return item.created_at + parseInt(service_fields.ttl) > current_ms;
+        });
+
+      const feedData = {
+        ...service_fields,
+        id: service_fields.id.id,
+        blobIds: encryptedObjects,
+        subscriptionId: valid_subscription?.id,
+      } as FeedData;
+      setFeed(feedData);
+    },
+    [id, suiAddress, packageId, suiClient],
+  );
 
   function constructMoveCall(
     packageId: string,
@@ -152,7 +125,7 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
   async function handleSubscribe(serviceId: string, fee: number) {
     const address = currentAccount?.address!;
     const tx = new Transaction();
-    tx.setGasBudget(10000000);
+    tx.setGasBudget(GAS_BUDGET);
     tx.setSender(address);
     const subscription = tx.moveCall({
       target: `${packageId}::subscription::subscribe`,
@@ -176,7 +149,6 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
       {
         onSuccess: async (result) => {
           console.log('res', result);
-          getFeed();
         },
       },
     );
@@ -247,7 +219,7 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
           },
         },
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error:', error);
     }
   };
@@ -265,9 +237,14 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
             {feed!.blobIds.length === 0 ? (
               <p>No Files yet.</p>
             ) : (
-              <Dialog.Root open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <Dialog.Trigger>
+              <DecryptedFilesDialog
+                isOpen={isDialogOpen}
+                onOpenChange={setIsDialogOpen}
+                decryptedFileUrls={decryptedFileUrls}
+                onClose={() => setDecryptedFileUrls([])}
+                reloadKey={reloadKey}
+                trigger={
+                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                     <Button
                       onClick={() =>
                         onView(feed!.blobIds, feed!.id, Number(feed!.fee), feed!.subscriptionId)
@@ -282,50 +259,14 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
                         </div>
                       )}
                     </Button>
-                  </Dialog.Trigger>
-                </div>
-                {decryptedFileUrls.length > 0 && (
-                  <Dialog.Content maxWidth="450px" key={reloadKey}>
-                    <Dialog.Title>View all files retrieved from Walrus</Dialog.Title>
-                    <Flex direction="column" gap="2">
-                      {decryptedFileUrls.map((decryptedFileUrl, index) => (
-                        <div key={index}>
-                          <img src={decryptedFileUrl} alt={`Decrypted image ${index + 1}`} />
-                        </div>
-                      ))}
-                    </Flex>
-                    <Flex gap="3" mt="4" justify="end">
-                      <Dialog.Close>
-                        <Button
-                          variant="soft"
-                          color="gray"
-                          onClick={() => setDecryptedFileUrls([])}
-                        >
-                          Close
-                        </Button>
-                      </Dialog.Close>
-                    </Flex>
-                  </Dialog.Content>
-                )}
-              </Dialog.Root>
+                  </div>
+                }
+              />
             )}
           </Flex>
         </Card>
       )}
-      <AlertDialog.Root open={!!error} onOpenChange={() => setError(null)}>
-        <AlertDialog.Content maxWidth="450px">
-          <AlertDialog.Title>Error</AlertDialog.Title>
-          <AlertDialog.Description size="2">{error}</AlertDialog.Description>
-
-          <Flex gap="3" mt="4" justify="end">
-            <AlertDialog.Action>
-              <Button variant="solid" color="gray" onClick={() => setError(null)}>
-                Close
-              </Button>
-            </AlertDialog.Action>
-          </Flex>
-        </AlertDialog.Content>
-      </AlertDialog.Root>
+      <ErrorAlertDialog error={error} onClose={() => setError(null)} />
     </Card>
   );
 };

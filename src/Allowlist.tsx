@@ -1,14 +1,16 @@
 // Copyright (c), Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
 import { Button, Card, Flex } from '@radix-ui/themes';
 import { useNetworkVariable } from './networkConfig';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { isValidSuiAddress } from '@mysten/sui/utils';
-import { getObjectExplorerLink } from './utils';
+import { getObjectExplorerLink, getObjectFields } from './utils';
+import { useExecuteTransaction, usePolling } from './hooks';
+import { GAS_BUDGET } from './constants';
 
 export interface Allowlist {
   id: string;
@@ -29,9 +31,8 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
   const { id } = useParams();
   const [capId, setInnerCapId] = useState<string>();
 
-  useEffect(() => {
-    async function getAllowlist() {
-      // load all caps
+  usePolling(
+    async () => {
       const res = await suiClient.getOwnedObjects({
         owner: currentAccount?.address!,
         options: {
@@ -43,10 +44,9 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
         },
       });
 
-      // find the cap for the given allowlist id
-      const capId = res.data
+      const capIds = res.data
         .map((obj) => {
-          const fields = (obj!.data!.content as { fields: any }).fields;
+          const fields = getObjectFields(obj);
           return {
             id: fields?.id.id,
             allowlist_id: fields?.allowlist_id,
@@ -54,46 +54,25 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
         })
         .filter((item) => item.allowlist_id === id)
         .map((item) => item.id) as string[];
-      setCapId(capId[0]);
-      setInnerCapId(capId[0]);
+      setCapId(capIds[0]);
+      setInnerCapId(capIds[0]);
 
-      // load the allowlist for the given id
-      const allowlist = await suiClient.getObject({
+      const allowlistObj = await suiClient.getObject({
         id: id!,
         options: { showContent: true },
       });
-      const fields = (allowlist.data?.content as { fields: any })?.fields || {};
+      const fields = getObjectFields(allowlistObj);
       setAllowlist({
         id: id!,
         name: fields.name,
         list: fields.list,
       });
       setRecipientAllowlist(id!);
-    }
+    },
+    [id, currentAccount?.address],
+  );
 
-    // Call getAllowlist immediately
-    getAllowlist();
-
-    // Set up interval to call getAllowlist every 3 seconds
-    const intervalId = setInterval(() => {
-      getAllowlist();
-    }, 3000);
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(intervalId);
-  }, [id, currentAccount?.address]); // Only depend on id
-
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) =>
-      await suiClient.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
-        options: {
-          showRawEffects: true,
-          showEffects: true,
-        },
-      }),
-  });
+  const { mutate: signAndExecute } = useExecuteTransaction();
 
   const addItem = (newAddressToAdd: string, wl_id: string, cap_id: string) => {
     if (newAddressToAdd.trim() !== '') {
@@ -106,7 +85,7 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
         arguments: [tx.object(wl_id), tx.object(cap_id), tx.pure.address(newAddressToAdd.trim())],
         target: `${packageId}::allowlist::add`,
       });
-      tx.setGasBudget(10000000);
+      tx.setGasBudget(GAS_BUDGET);
 
       signAndExecute(
         {
@@ -128,7 +107,7 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
         arguments: [tx.object(wl_id), tx.object(cap_id), tx.pure.address(addressToRemove.trim())],
         target: `${packageId}::allowlist::remove`,
       });
-      tx.setGasBudget(10000000);
+      tx.setGasBudget(GAS_BUDGET);
 
       signAndExecute(
         {

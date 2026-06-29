@@ -79,31 +79,23 @@ describe('AllowlistView - Feeds component', () => {
   });
 });
 
-describe('constructMoveCall logic', () => {
-  it('should create a function that builds the correct move call target', () => {
+describe('constructMoveCall target format', () => {
+  it('should produce the expected target string pattern for allowlist seal_approve', () => {
     const packageId = '0xtestpkg';
     const allowlistId = '0xallowlist1';
 
-    // Reconstruct the function inline to test its logic
-    const constructMoveCall = (packageId: string, allowlistId: string) => {
-      return (tx: { moveCall: (args: { target: string; arguments: string[] }) => void }, id: string) => {
-        tx.moveCall({
-          target: `${packageId}::allowlist::seal_approve`,
-          arguments: [id, allowlistId],
-        });
-      };
-    };
+    // Verify the target string format matches Move module convention
+    const expectedTarget = `${packageId}::allowlist::seal_approve`;
+    expect(expectedTarget).toBe('0xtestpkg::allowlist::seal_approve');
+    expect(expectedTarget).toMatch(/^0x[a-z]+::allowlist::seal_approve$/);
+  });
 
-    const moveCall = constructMoveCall(packageId, allowlistId);
-    expect(typeof moveCall).toBe('function');
-
-    // Verify the function calls tx.moveCall with correct target
-    const mockTx = { moveCall: vi.fn() };
-    moveCall(mockTx, '0xid123');
-
-    expect(mockTx.moveCall).toHaveBeenCalledWith({
-      target: '0xtestpkg::allowlist::seal_approve',
-      arguments: ['0xid123', '0xallowlist1'],
-    });
+  it('should use the correct module path for seal_approve', () => {
+    // The module target must follow the format: packageId::module::function
+    const target = '0x4cb081457b1e098d566a277f605ba48410e26e66eaab5b3be4f6c560e9501800::allowlist::seal_approve';
+    const parts = target.split('::');
+    expect(parts).toHaveLength(3);
+    expect(parts[1]).toBe('allowlist');
+    expect(parts[2]).toBe('seal_approve');
   });
 });

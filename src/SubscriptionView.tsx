@@ -33,7 +33,7 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
   const client = new SealClient({
     suiClient,
     serverObjectIds: getAllowlistedKeyServers('testnet'),
-    verifyKeyServers: false,
+    verifyKeyServers: true,
   });
   const [feed, setFeed] = useState<FeedData>();
   const [decryptedFileUrls, setDecryptedFileUrls] = useState<string[]>([]);
@@ -175,7 +175,6 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
       },
       {
         onSuccess: async (result) => {
-          console.log('res', result);
           getFeed();
         },
       },
@@ -248,7 +247,7 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
         },
       );
     } catch (error: any) {
-      console.error('Error:', error);
+
     }
   };
 

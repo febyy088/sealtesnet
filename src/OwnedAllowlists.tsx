@@ -87,6 +87,7 @@ export function AllAllowlist() {
               window.open(
                 `${window.location.origin}/allowlist-example/admin/allowlist/${item.allowlist_id}`,
                 '_blank',
+                'noopener,noreferrer',
               );
             }}
           >

@@ -48,7 +48,7 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
   const client = new SealClient({
     suiClient,
     serverObjectIds: getAllowlistedKeyServers('testnet'),
-    verifyKeyServers: false,
+    verifyKeyServers: true,
   });
 
   const services: WalrusService[] = [
@@ -127,14 +127,12 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
             displayUpload(storageInfo.info, file.type);
             setIsUploading(false);
           } else {
-            console.error('Unexpected result type:', typeof result);
             setIsUploading(false);
           }
         }
       };
       reader.readAsArrayBuffer(file);
     } else {
-      console.error('No file selected');
     }
   };
 
@@ -201,7 +199,6 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
       },
       {
         onSuccess: async (result) => {
-          console.log('res', result);
           alert('Blob attached successfully, now share the link or upload more.');
         },
       },

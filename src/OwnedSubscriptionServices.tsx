@@ -103,6 +103,7 @@ export function AllServices() {
               window.open(
                 `${window.location.origin}/subscription-example/admin/service/${item.id}`,
                 '_blank',
+                'noopener,noreferrer',
               );
             }}
           >

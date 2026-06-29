@@ -113,9 +113,7 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
           transaction: tx,
         },
         {
-          onSuccess: async (result) => {
-            console.log('res', result);
-          },
+          onSuccess: async () => {},
         },
       );
     }
@@ -135,9 +133,7 @@ export function Allowlist({ setRecipientAllowlist, setCapId }: AllowlistProps) {
           transaction: tx,
         },
         {
-          onSuccess: async (result) => {
-            console.log('res', result);
-          },
+          onSuccess: async () => {},
         },
       );
     }

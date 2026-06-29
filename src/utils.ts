@@ -33,7 +33,6 @@ export const downloadAndDecrypt = async (
         }
         return await response.arrayBuffer();
       } catch (err) {
-        console.error(`Blob ${blobId} cannot be retrieved from Walrus`, err);
         return null;
       }
     }),
@@ -41,12 +40,9 @@ export const downloadAndDecrypt = async (
 
   // Filter out failed downloads
   const validDownloads = downloadResults.filter((result): result is ArrayBuffer => result !== null);
-  console.log('validDownloads count', validDownloads.length);
-
   if (validDownloads.length === 0) {
     const errorMsg =
       'Cannot retrieve files from this Walrus aggregator, try again (a randomly selected aggregator will be used). Files uploaded more than 1 epoch ago have been deleted from Walrus.';
-    console.error(errorMsg);
     setError(errorMsg);
     return;
   }
@@ -61,12 +57,10 @@ export const downloadAndDecrypt = async (
     try {
       await sealClient.fetchKeys({ ids, txBytes, sessionKey, threshold: 2 });
     } catch (err) {
-      console.log(err);
       const errorMsg =
         err instanceof NoAccessError
           ? 'No access to decryption keys'
           : 'Unable to decrypt files, try again';
-      console.error(errorMsg, err);
       setError(errorMsg);
       return;
     }
@@ -89,12 +83,10 @@ export const downloadAndDecrypt = async (
       const blob = new Blob([decryptedFile], { type: 'image/jpg' });
       decryptedFileUrls.push(URL.createObjectURL(blob));
     } catch (err) {
-      console.log(err);
       const errorMsg =
         err instanceof NoAccessError
           ? 'No access to decryption keys'
           : 'Unable to decrypt files, try again';
-      console.error(errorMsg, err);
       setError(errorMsg);
       return;
     }

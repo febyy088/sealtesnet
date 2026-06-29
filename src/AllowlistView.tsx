@@ -32,7 +32,7 @@ const Feeds: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
   const client = new SealClient({
     suiClient,
     serverObjectIds: getAllowlistedKeyServers('testnet'),
-    verifyKeyServers: false,
+    verifyKeyServers: true,
   });
   const packageId = useNetworkVariable('packageId');
 
@@ -132,7 +132,7 @@ const Feeds: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
         },
       );
     } catch (error: any) {
-      console.error('Error:', error);
+
     }
   };
 

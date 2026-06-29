@@ -42,7 +42,6 @@ export function CreateAllowlist() {
       },
       {
         onSuccess: async (result) => {
-          console.log('res', result);
           // Extract the created allowlist object ID from the transaction result
           const allowlistObject = result.effects?.created?.find(
             (item) => item.owner && typeof item.owner === 'object' && 'Shared' in item.owner,
@@ -52,6 +51,7 @@ export function CreateAllowlist() {
             window.open(
               `${window.location.origin}/allowlist-example/admin/allowlist/${createdObjectId}`,
               '_blank',
+              'noopener,noreferrer',
             );
           }
         },

@@ -45,7 +45,6 @@ export function CreateService() {
       },
       {
         onSuccess: async (result) => {
-          console.log('res', result);
           const subscriptionObject = result.effects?.created?.find(
             (item) => item.owner && typeof item.owner === 'object' && 'Shared' in item.owner,
           );
@@ -54,6 +53,7 @@ export function CreateService() {
             window.open(
               `${window.location.origin}/subscription-example/admin/service/${createdObjectId}`,
               '_blank',
+              'noopener,noreferrer',
             );
           }
         },
@@ -74,7 +74,13 @@ export function CreateService() {
           <Button
             size="3"
             onClick={() => {
-              createService(parseInt(price), parseInt(ttl), name);
+              const parsedPrice = parseInt(price, 10);
+              const parsedTtl = parseInt(ttl, 10);
+              if (isNaN(parsedPrice) || isNaN(parsedTtl)) {
+                alert('Price and TTL must be valid numbers');
+                return;
+              }
+              createService(parsedPrice, parsedTtl, name);
             }}
           >
             Create Service

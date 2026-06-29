@@ -72,63 +72,68 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
   }, [id, suiAddress, packageId, suiClient]);
 
   async function getFeed() {
-    // get all encrypted objects for the given service id
-    const encryptedObjects = await suiClient
-      .getDynamicFields({
-        parentId: id!,
-      })
-      .then((res) => res.data.map((obj) => obj.name.value as string));
+    try {
+      // get all encrypted objects for the given service id
+      const encryptedObjects = await suiClient
+        .getDynamicFields({
+          parentId: id!,
+        })
+        .then((res) => res.data.map((obj) => obj.name.value as string));
 
-    // get the current service object
-    const service = await suiClient.getObject({
-      id: id!,
-      options: { showContent: true },
-    });
-    const service_fields = (service.data?.content as { fields: any })?.fields || {};
+      // get the current service object
+      const service = await suiClient.getObject({
+        id: id!,
+        options: { showContent: true },
+      });
+      const service_fields = (service.data?.content as { fields: any })?.fields || {};
 
-    // get all subscriptions for the given sui address
-    const res = await suiClient.getOwnedObjects({
-      owner: suiAddress,
-      options: {
-        showContent: true,
-        showType: true,
-      },
-      filter: {
-        StructType: `${packageId}::subscription::Subscription`,
-      },
-    });
-
-    // get the current timestamp
-    const clock = await suiClient.getObject({
-      id: '0x6',
-      options: { showContent: true },
-    });
-    const fields = (clock.data?.content as { fields: any })?.fields || {};
-    const current_ms = fields.timestamp_ms;
-
-    // find an expired subscription for the given service if exists.
-    const valid_subscription = res.data
-      .map((obj) => {
-        const fields = (obj!.data!.content as { fields: any }).fields;
-        const x = {
-          id: fields?.id.id,
-          created_at: parseInt(fields?.created_at),
-          service_id: fields?.service_id,
-        };
-        return x;
-      })
-      .filter((item) => item.service_id === service_fields.id.id)
-      .find((item) => {
-        return item.created_at + parseInt(service_fields.ttl) > current_ms;
+      // get all subscriptions for the given sui address
+      const res = await suiClient.getOwnedObjects({
+        owner: suiAddress,
+        options: {
+          showContent: true,
+          showType: true,
+        },
+        filter: {
+          StructType: `${packageId}::subscription::Subscription`,
+        },
       });
 
-    const feed = {
-      ...service_fields,
-      id: service_fields.id.id,
-      blobIds: encryptedObjects,
-      subscriptionId: valid_subscription?.id,
-    } as FeedData;
-    setFeed(feed);
+      // get the current timestamp
+      const clock = await suiClient.getObject({
+        id: '0x6',
+        options: { showContent: true },
+      });
+      const fields = (clock.data?.content as { fields: any })?.fields || {};
+      const current_ms = fields.timestamp_ms;
+
+      // find an expired subscription for the given service if exists.
+      const valid_subscription = res.data
+        .map((obj) => {
+          const fields = (obj!.data!.content as { fields: any }).fields;
+          const x = {
+            id: fields?.id.id,
+            created_at: parseInt(fields?.created_at),
+            service_id: fields?.service_id,
+          };
+          return x;
+        })
+        .filter((item) => item.service_id === service_fields.id.id)
+        .find((item) => {
+          return item.created_at + parseInt(service_fields.ttl) > current_ms;
+        });
+
+      const feed = {
+        ...service_fields,
+        id: service_fields.id.id,
+        blobIds: encryptedObjects,
+        subscriptionId: valid_subscription?.id,
+      } as FeedData;
+      setFeed(feed);
+    } catch (err) {
+      console.error('Failed to load subscription feed:', err);
+      setError('Failed to load subscription data. Please refresh the page.');
+    }
   }
 
   function constructMoveCall(
@@ -177,6 +182,10 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
         onSuccess: async (result) => {
           console.log('res', result);
           getFeed();
+        },
+        onError: (error) => {
+          console.error('Failed to subscribe:', error);
+          setError('Failed to subscribe. Please try again.');
         },
       },
     );
@@ -249,6 +258,7 @@ const FeedsToSubscribe: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
       );
     } catch (error: any) {
       console.error('Error:', error);
+      setError('An unexpected error occurred. Please try again.');
     }
   };
 

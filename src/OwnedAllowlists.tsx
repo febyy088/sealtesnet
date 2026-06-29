@@ -29,41 +29,45 @@ export function AllAllowlist() {
   const getCapObj = useCallback(async () => {
     if (!currentAccount?.address) return;
 
-    const res = await suiClient.getOwnedObjects({
-      owner: currentAccount?.address,
-      options: {
-        showContent: true,
-        showType: true,
-      },
-      filter: {
-        StructType: `${packageId}::allowlist::Cap`,
-      },
-    });
-    const caps = res.data
-      .map((obj) => {
-        const fields = (obj!.data!.content as { fields: any }).fields;
-        return {
-          id: fields?.id.id,
-          allowlist_id: fields?.allowlist_id,
-        };
-      })
-      .filter((item) => item !== null) as Cap[];
-    const cardItems: CardItem[] = await Promise.all(
-      caps.map(async (cap) => {
-        const allowlist = await suiClient.getObject({
-          id: cap.allowlist_id,
-          options: { showContent: true },
-        });
-        const fields = (allowlist.data?.content as { fields: any })?.fields || {};
-        return {
-          cap_id: cap.id,
-          allowlist_id: cap.allowlist_id,
-          list: fields.list,
-          name: fields.name,
-        };
-      }),
-    );
-    setCardItems(cardItems);
+    try {
+      const res = await suiClient.getOwnedObjects({
+        owner: currentAccount?.address,
+        options: {
+          showContent: true,
+          showType: true,
+        },
+        filter: {
+          StructType: `${packageId}::allowlist::Cap`,
+        },
+      });
+      const caps = res.data
+        .map((obj) => {
+          const fields = (obj!.data!.content as { fields: any }).fields;
+          return {
+            id: fields?.id.id,
+            allowlist_id: fields?.allowlist_id,
+          };
+        })
+        .filter((item) => item !== null) as Cap[];
+      const cardItems: CardItem[] = await Promise.all(
+        caps.map(async (cap) => {
+          const allowlist = await suiClient.getObject({
+            id: cap.allowlist_id,
+            options: { showContent: true },
+          });
+          const fields = (allowlist.data?.content as { fields: any })?.fields || {};
+          return {
+            cap_id: cap.id,
+            allowlist_id: cap.allowlist_id,
+            list: fields.list,
+            name: fields.name,
+          };
+        }),
+      );
+      setCardItems(cardItems);
+    } catch (err) {
+      console.error('Failed to load allowlists:', err);
+    }
   }, [currentAccount?.address]);
 
   useEffect(() => {

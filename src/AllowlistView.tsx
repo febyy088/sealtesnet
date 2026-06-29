@@ -60,22 +60,27 @@ const Feeds: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
   }, [id, suiClient, packageId]); // Add all dependencies that getFeed uses
 
   async function getFeed() {
-    const allowlist = await suiClient.getObject({
-      id: id!,
-      options: { showContent: true },
-    });
-    const encryptedObjects = await suiClient
-      .getDynamicFields({
-        parentId: id!,
-      })
-      .then((res) => res.data.map((obj) => obj.name.value as string));
-    const fields = (allowlist.data?.content as { fields: any })?.fields || {};
-    const feedData = {
-      allowlistId: id!,
-      allowlistName: fields?.name,
-      blobIds: encryptedObjects,
-    };
-    setFeed(feedData);
+    try {
+      const allowlist = await suiClient.getObject({
+        id: id!,
+        options: { showContent: true },
+      });
+      const encryptedObjects = await suiClient
+        .getDynamicFields({
+          parentId: id!,
+        })
+        .then((res) => res.data.map((obj) => obj.name.value as string));
+      const fields = (allowlist.data?.content as { fields: any })?.fields || {};
+      const feedData = {
+        allowlistId: id!,
+        allowlistName: fields?.name,
+        blobIds: encryptedObjects,
+      };
+      setFeed(feedData);
+    } catch (err) {
+      console.error('Failed to load feed data:', err);
+      setError('Failed to load feed data. Please refresh the page.');
+    }
   }
 
   const onView = async (blobIds: string[], allowlistId: string) => {
@@ -133,6 +138,7 @@ const Feeds: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
       );
     } catch (error: any) {
       console.error('Error:', error);
+      setError('An unexpected error occurred. Please try again.');
     }
   };
 

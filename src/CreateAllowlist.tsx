@@ -55,6 +55,10 @@ export function CreateAllowlist() {
             );
           }
         },
+        onError: (error) => {
+          console.error('Failed to create allowlist:', error);
+          alert('Failed to create allowlist. Please try again.');
+        },
       },
     );
   }

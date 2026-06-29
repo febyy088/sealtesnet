@@ -57,6 +57,10 @@ export function CreateService() {
             );
           }
         },
+        onError: (error) => {
+          console.error('Failed to create subscription service:', error);
+          alert('Failed to create subscription service. Please try again.');
+        },
       },
     );
   }

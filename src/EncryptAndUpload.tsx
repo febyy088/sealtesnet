@@ -37,7 +37,7 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
   const [file, setFile] = useState<File | null>(null);
   const [info, setInfo] = useState<Data | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [selectedService, setSelectedService] = useState<string>('service1');
+  const [selectedService, setSelectedService] = useState<string>('service2');
 
   const SUI_VIEW_TX_URL = `https://suiscan.xyz/testnet/tx`;
   const SUI_VIEW_OBJECT_URL = `https://suiscan.xyz/testnet/object`;

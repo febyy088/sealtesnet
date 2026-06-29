@@ -1,9 +1,15 @@
 import { SealClient, SessionKey, NoAccessError, EncryptedObject } from '@mysten/seal';
-import { SuiClient } from '@mysten/sui/client';
+import { SuiClient, SuiObjectResponse } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import React from 'react';
 
 export type MoveCallConstructor = (tx: Transaction, id: string) => void;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getObjectFields(obj: SuiObjectResponse): Record<string, any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (obj.data?.content as { fields: Record<string, any> })?.fields || {};
+}
 
 export const downloadAndDecrypt = async (
   blobIds: string[],

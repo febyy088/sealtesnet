@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNetworkVariable } from './networkConfig';
 import { Button, Card } from '@radix-ui/themes';
-import { getObjectExplorerLink } from './utils';
+import { getObjectExplorerLink, getObjectFields } from './utils';
+import { usePolling } from './hooks';
 
 export interface Cap {
   id: string;
@@ -27,9 +28,8 @@ export function AllServices() {
 
   const [cardItems, setCardItems] = useState<CardItem[]>([]);
 
-  useEffect(() => {
-    async function getCapObj() {
-      // get all owned cap objects
+  usePolling(
+    async () => {
       const res = await suiClient.getOwnedObjects({
         owner: currentAccount?.address!,
         options: {
@@ -42,7 +42,7 @@ export function AllServices() {
       });
       const caps = res.data
         .map((obj) => {
-          const fields = (obj!.data!.content as { fields: any }).fields;
+          const fields = getObjectFields(obj);
           return {
             id: fields?.id.id,
             service_id: fields?.service_id,
@@ -50,14 +50,13 @@ export function AllServices() {
         })
         .filter((item) => item !== null) as Cap[];
 
-      // get all services of all the owned cap objects
-      const cardItems: CardItem[] = await Promise.all(
+      const items: CardItem[] = await Promise.all(
         caps.map(async (cap) => {
           const service = await suiClient.getObject({
             id: cap.service_id,
             options: { showContent: true },
           });
-          const fields = (service.data?.content as { fields: any })?.fields || {};
+          const fields = getObjectFields(service);
           return {
             id: cap.service_id,
             fee: fields.fee,
@@ -67,20 +66,10 @@ export function AllServices() {
           };
         }),
       );
-      setCardItems(cardItems);
-    }
-
-    // Call getCapObj immediately
-    getCapObj();
-
-    // Set up interval to call getCapObj every 3 seconds
-    const intervalId = setInterval(() => {
-      getCapObj();
-    }, 3000);
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(intervalId);
-  }, [currentAccount?.address]); // Empty dependency array since we don't need any external values
+      setCardItems(items);
+    },
+    [currentAccount?.address],
+  );
 
   return (
     <div>

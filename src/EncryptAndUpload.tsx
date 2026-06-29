@@ -3,10 +3,10 @@
 import React, { useState } from 'react';
 import { Transaction } from '@mysten/sui/transactions';
 import { useNetworkVariable } from './networkConfig';
-import { useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { Button, Card, Flex, Spinner, Text } from '@radix-ui/themes';
-import { getAllowlistedKeyServers, SealClient } from '@mysten/seal';
 import { fromHex, toHex } from '@mysten/sui/utils';
+import { useExecuteTransaction, useSealClient } from './hooks';
+import { GAS_BUDGET } from './constants';
 
 export type Data = {
   status: string;
@@ -17,7 +17,7 @@ export type Data = {
   suiBaseUrl: string;
   blobUrl: string;
   suiUrl: string;
-  isImage: string;
+  isImage: boolean;
 };
 
 interface WalrusUploadProps {
@@ -44,12 +44,7 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
 
   const NUM_EPOCH = 1;
   const packageId = useNetworkVariable('packageId');
-  const suiClient = useSuiClient();
-  const client = new SealClient({
-    suiClient,
-    serverObjectIds: getAllowlistedKeyServers('testnet'),
-    verifyKeyServers: false,
-  });
+  const client = useSealClient();
 
   const services: WalrusService[] = [
     {
@@ -78,26 +73,15 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
     return `${service?.publisherUrl}/v1/${cleanPath}`;
   }
 
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) =>
-      await suiClient.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
-        options: {
-          showRawEffects: true,
-          showEffects: true,
-        },
-      }),
-  });
+  const { mutate: signAndExecute } = useExecuteTransaction();
 
-  const handleFileChange = (event: any) => {
-    const file = event.target.files[0];
-    // Max 10 MiB size
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
       alert('File size must be less than 10 MiB');
       return;
     }
-    // Check if file is an image
     if (!file.type.startsWith('image/')) {
       alert('Only image files are allowed');
       return;
@@ -138,7 +122,8 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
     }
   };
 
-  const displayUpload = (storage_info: any, media_type: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const displayUpload = (storage_info: any, media_type: string) => {
     let info;
     if ('alreadyCertified' in storage_info) {
       info = {
@@ -194,7 +179,7 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
       arguments: [tx.object(wl_id), tx.object(cap_id), tx.pure.string(info!.blobId)],
     });
 
-    tx.setGasBudget(10000000);
+    tx.setGasBudget(GAS_BUDGET);
     signAndExecute(
       {
         transaction: tx,

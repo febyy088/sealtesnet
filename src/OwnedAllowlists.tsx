@@ -5,7 +5,7 @@ import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
 import { useCallback, useEffect, useState } from 'react';
 import { useNetworkVariable } from './networkConfig';
 import { Button, Card } from '@radix-ui/themes';
-import { getObjectExplorerLink } from './utils';
+import { getObjectExplorerLink, getObjectFields } from './utils';
 
 export interface Cap {
   id: string;
@@ -41,7 +41,7 @@ export function AllAllowlist() {
     });
     const caps = res.data
       .map((obj) => {
-        const fields = (obj!.data!.content as { fields: any }).fields;
+        const fields = getObjectFields(obj);
         return {
           id: fields?.id.id,
           allowlist_id: fields?.allowlist_id,
@@ -54,7 +54,7 @@ export function AllAllowlist() {
           id: cap.allowlist_id,
           options: { showContent: true },
         });
-        const fields = (allowlist.data?.content as { fields: any })?.fields || {};
+        const fields = getObjectFields(allowlist);
         return {
           cap_id: cap.id,
           allowlist_id: cap.allowlist_id,
@@ -64,7 +64,7 @@ export function AllAllowlist() {
       }),
     );
     setCardItems(cardItems);
-  }, [currentAccount?.address]);
+  }, [currentAccount?.address, packageId, suiClient]);
 
   useEffect(() => {
     getCapObj();
